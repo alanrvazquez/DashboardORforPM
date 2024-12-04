@@ -1,0 +1,363 @@
+---
+title: "Numerical Results"
+author: 
+    - name: Alan R. Vazquez
+      orcid: 0000-0002-3658-0911
+      email: alanrvazquez@tec.mx
+format: 
+  dashboard:
+    orientation: rows
+server: shiny
+---
+
+```{r}
+#| context: setup
+#| echo: false
+#| output: false
+
+# Load libraries.
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+
+################################################################################
+# Read data
+################################################################################
+my.data.small = read_csv("results/small_problems.csv")
+my.data.medium = read_csv("results/medium_problems.csv")
+my.data.large = read_csv("results/large_problems.csv")
+
+my.data = bind_rows(my.data.small, my.data.medium, my.data.large)
+my.data = my.data %>% 
+  mutate(p = p -1) %>%  # Remove intercept.
+  filter(Algorithm != "RAND")
+
+summary_results = my.data %>% 
+  group_by(Algorithm, n, p) %>% 
+  summarise("Mean ASTCV" = mean(Iopt),
+            "Max ASTCV" = mean(obj),
+            "Mean AASTCV" = mean(Iopt.approx),
+            "Max AASTCV" = mean(obj.approx)) %>% 
+  arrange(n, p)
+
+p.values = unique(summary_results$p)
+
+data.table = my.data %>% 
+  pivot_longer(c("Iopt", "Iopt.approx", "obj", "obj.approx"),
+                         names_to = "Criteria", values_to = "Value")
+                      
+data.table = data.table %>% spread(key = "Algorithm", value = "Value")
+
+paper.table = data.table %>% 
+  group_by(n, p, Criteria) %>% 
+  summarise("EXACT" = mean(EXACT),
+            "LB_APPROX" = mean(LB_APPROX),
+            "MB_SDP" = mean(MB_SDP),
+            "IP" = mean(IP),
+            "CE" = mean(CE)) #%>% 
+  #mutate("p" = p -1)
+
+paper.table = paper.table %>% mutate("n" = as.integer(n),
+                                     "p" = as.integer(p))
+
+################################################################################
+# Plot theme
+################################################################################
+
+ytext <- 18
+xtext <- ytext
+y.axis.title <- 20
+x.axis.title <- y.axis.title
+legtext <- 10
+
+plot.theme <- theme(axis.text.y  = element_text(size=ytext, colour = 'black'), axis.text.x  = element_text(size=xtext, colour = 'black'),
+                    axis.title.y  = element_text(size=y.axis.title, vjust=0.9),
+                    axis.title.x  = element_text(size=x.axis.title),
+                    panel.background = element_rect(fill = "white", colour = 'black'),
+                    legend.text = element_text(size = legtext), legend.title = element_text(size=legtext),
+                    plot.title = element_text(lineheight=.8, face="bold", size = 20),
+                    strip.text = element_text(size=15), strip.text.x = element_text(size=20, face="bold"),
+                    panel.border = element_rect(linetype = "solid", colour = "black", fill = NA),
+                    panel.grid.major = element_line(colour = "grey92", linetype = "dashed"),
+                    panel.grid.minor = element_line(colour = "grey92", linetype = "dashed"))
+
+
+```
+
+
+# {.sidebar}
+
+```{r}
+#| title: Inputs
+selectInput("sampleSize", "Number of subjects:", 
+            unique(summary_results$n))
+radioButtons("criterion", "Criteria:", 
+            c("Original", "Approximation"))
+checkboxInput('colorPal', "Highlight IP and CE")
+```
+
+```{r}
+#| context: server
+#| echo: false
+#| output: false
+
+dataset = reactive({
+  summary_results[summary_results$n == input$sampleSize,]
+})
+
+datasetTwo = reactive({
+  my.data[my.data$n == input$sampleSize,]
+})
+
+datasetTable = reactive({
+  paper.table[paper.table$n == input$sampleSize,]
+})
+
+```
+
+# Introduction
+
+This dashboard provides the results from the numerical experiments in Section 6 of Vazquez and Wong (2024). The numerical experiments have  problems with 20 to 150 subjects and two to 24 quantitative or categorical covariates. All sets of problems involve a model with the intercept and the linear terms of the covariates, as well as the interactions of the treatment effect with these terms.  
+
+For each problem, there are five $n \times p$ covariate matrices $\mathbf{H}$ of the subjects in the trial. They are the input of the algorithms to construct two-arm clinical trials. The algorithms and their labels are:
+
+- EXACT: Exact algorithm of Zhang et al. (2021).
+- LB\_APPROX: Approximate algorithm of Zhang et al. (2021).
+- MB\_SDP: Mixed binary semidefinite programming algorithm of Li et al. (2023).
+- IP: Integer programming algorithm of Vazquez and Wong (2024).
+- CE: Coordinate-exchange algorithm of Vazquez and Wong (2024).
+
+We evaluate the clinical trials constructed by the algorithms in terms of the average subject's covariate (SC) variance and the maximum SC variance calculated over the entire covariate space $\mathcal{Z}$ (Zhang et al., 2021). We also evaluate the algorithms in terms of the maximum and average approximated SC variance.
+
+## References
+
+**References:**
+
+Li, Y., Zhang, Q., Khademi, A., and Yang, B. (2023). Optimal design of controlled experiments for personalized decision making in the presence of observational covariates. *The New England Journal of Statistics in Data Science*, 1:386-393.
+
+Vazquez, A. R. and Wong, W.-K. (2024). Integer Programming and Heuristic Algorithms for Constructing Optimal Two-Arm Clinical Trials for Personalized Medicine. Submitted to *Journal of Computational and Graphical Statistics*.
+
+Zhang, Q., Khademi, A., and Song, Y. (2021). Mini-max optimal design of two-armed trials with side information. *INFORMS Journal of Computing*, 34:165-182.
+
+# Overall
+
+Performance of optimization algorithms for constructing two-arm clinical trials in terms of the maximum and average subject treatment covariate (SC) variance, averaged across the five input covariate matrices.
+
+## Comparisons
+
+```{r}
+#| context: server
+
+output$maxPlot <- renderPlot({
+  
+  if (input$criterion == "Approximation"){
+    my.plot = ggplot(dataset(), aes(x = p, y = `Max AASTCV`))+
+      xlab("Number of covariates") + ylab("Max. approx. SC variance") +
+      geom_line(aes(color = Algorithm), linewidth = 1.1) +
+      scale_x_continuous(breaks = p.values)
+  } else {
+    my.plot = ggplot(dataset(), aes(x = p, y = `Max ASTCV`))+
+      xlab("Number of covariates") + ylab("Max. SC variance") +
+      geom_line(aes(color = Algorithm), linewidth = 1.1) +
+      scale_x_continuous(breaks = p.values)
+  }
+    
+    
+    if (input$colorPal){
+      
+      if(input$sampleSize == 300){
+          my.plot = my.plot + scale_color_manual(values=c("#1e3f5a", "#A9A9A9",
+                                                       "#A9A9A9",
+                                                      "#A9A9A9","#A9A9A9"))
+      } else { 
+          my.plot = my.plot + scale_color_manual(values=c("#1e3f5a", "#A9A9A9",
+                                                      "#1e3f5a","#A9A9A9",
+                                                      "#A9A9A9","#A9A9A9"))  
+        }
+      
+    }
+    
+    my.plot = my.plot + plot.theme
+    print(my.plot)
+})
+```
+
+```{r}
+#| title: Mean maximum SC variance. The lower the better.
+plotOutput("maxPlot")
+```
+
+
+```{r}
+#| context: server
+
+output$meanPlot <- renderPlot({
+  
+  if (input$criterion == "Approximation"){
+    my.plot = ggplot(dataset(), aes(x = p, y = `Mean AASTCV`)) + 
+      xlab("Number of covariates") + ylab("Average approx. SC variance") +
+      geom_line(aes(color = Algorithm), linewidth = 1.1) + 
+      scale_x_continuous(breaks = p.values)
+  } else {
+    my.plot = ggplot(dataset(), aes(x = p, y = `Mean ASTCV`))+
+      xlab("Number of covariates") + ylab("Average SC variance") +
+      geom_line(aes(color = Algorithm), linewidth = 1.1) +
+      scale_x_continuous(breaks = p.values)
+  }
+    
+      if (input$colorPal){
+      if(input$sampleSize == 300){
+          my.plot = my.plot + scale_color_manual(values=c("#1e3f5a", "#A9A9A9",
+                                                       "#A9A9A9",
+                                                      "#A9A9A9","#A9A9A9"))
+      } else { 
+          my.plot = my.plot + scale_color_manual(values=c("#1e3f5a", "#A9A9A9",
+                                                      "#1e3f5a","#A9A9A9",
+                                                      "#A9A9A9","#A9A9A9"))  
+        }
+    
+      }
+    
+    my.plot = my.plot + plot.theme
+    print(my.plot)
+})
+```
+
+```{r}
+#| title: Mean average SC variance. The lower the better.
+plotOutput("meanPlot")
+```
+
+## Data tables
+
+```{r}
+#| context: server
+
+output$sumTableAve <- renderTable({
+
+  if (input$criterion == "Approximation"){
+    summary.table.average = datasetTable() %>% 
+    filter(Criteria == "Iopt.approx") %>% 
+    select(-Criteria)
+  } else { 
+        summary.table.average = datasetTable() %>% 
+    filter(Criteria == "Iopt") %>% 
+    select(-Criteria)
+    }
+
+  summary.table.average
+}, digits = 4)
+```
+
+```{r}
+#| context: server
+
+output$sumTableMax <- renderTable({
+  if (input$criterion == "Approximation"){
+    summary.table.max = datasetTable() %>% 
+      filter(Criteria == "obj.approx") %>% 
+      select(-Criteria)
+  } else {
+    summary.table.max = datasetTable() %>% 
+    filter(Criteria == "obj") %>% 
+    select(-Criteria)
+  }
+
+  summary.table.max
+}, digits = 4)
+```
+
+```{r}
+#| title: Mean maximum SC variance values
+tableOutput("sumTableMax")
+```
+
+```{r}
+#| title: Mean average SC variance values
+tableOutput("sumTableAve")
+```
+
+# Average
+
+```{r}
+#| context: server
+
+output$meanPlotIndividual <- renderPlot({
+  
+  if (input$criterion == "Approximation"){
+            my.plot = ggplot(datasetTwo(), aes(x = p, y = Iopt.approx))+
+      xlab("Number of covariates") + ylab("Average approx. SC variance") +
+      geom_line(aes(color = Algorithm), linewidth = 1.1) 
+  } else {
+        my.plot = ggplot(datasetTwo(), aes(x = p, y = Iopt))+
+      xlab("Number of covariates") + ylab("Average SC variance") +
+      geom_line(aes(color = Algorithm), linewidth = 1.1)
+  }
+  
+    my.plot =  my.plot + scale_x_continuous(breaks = p.values) + facet_wrap(~ ii)
+    
+    if (input$colorPal){
+      if(input$sampleSize == 300){
+          my.plot = my.plot + scale_color_manual(values=c("#1e3f5a", "#A9A9A9",
+                                                       "#A9A9A9",
+                                                      "#A9A9A9","#A9A9A9"))
+      } else { 
+          my.plot = my.plot + scale_color_manual(values=c("#1e3f5a", "#A9A9A9",
+                                                      "#1e3f5a","#A9A9A9",
+                                                      "#A9A9A9","#A9A9A9"))  
+        }
+    }
+    
+    my.plot = my.plot + plot.theme
+    print(my.plot)
+})
+```
+
+```{r}
+#| title: Average SC variance for each input covariate matrix. The lower the better.
+plotOutput("meanPlotIndividual")
+```
+
+# Maximum
+
+```{r}
+#| context: server
+
+output$maxPlotIndividual <- renderPlot({
+  
+    if (input$criterion == "Approximation"){
+      my.plot = ggplot(datasetTwo(), aes(x = p, y = obj.approx))+
+      xlab("Number of covariates") + ylab("Maximum approx. SC variance") +
+      geom_line(aes(color = Algorithm), linewidth = 1.1) 
+  } else {
+      my.plot = ggplot(datasetTwo(), aes(x = p, y = obj))+
+      xlab("Number of covariates") + ylab("Maximum SC variance") +
+      geom_line(aes(color = Algorithm), linewidth = 1.1)
+  }
+  
+  my.plot =  my.plot + scale_x_continuous(breaks = p.values) + facet_wrap(~ ii)
+    
+    if (input$colorPal){
+      if(input$sampleSize == 300){
+          my.plot = my.plot + scale_color_manual(values=c("#1e3f5a", "#A9A9A9",
+                                                       "#A9A9A9",
+                                                      "#A9A9A9","#A9A9A9"))
+      } else { 
+          my.plot = my.plot + scale_color_manual(values=c("#1e3f5a", "#A9A9A9",
+                                                      "#1e3f5a","#A9A9A9",
+                                                      "#A9A9A9","#A9A9A9"))  
+        }
+    }
+    
+    my.plot = my.plot + plot.theme
+    print(my.plot)
+})
+```
+
+```{r}
+#| title: Maximum SC variance for each input covariate matrix. The lower the better.
+plotOutput("maxPlotIndividual")
+```
+
