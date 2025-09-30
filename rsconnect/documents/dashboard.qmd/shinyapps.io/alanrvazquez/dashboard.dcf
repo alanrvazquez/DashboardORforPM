@@ -1,12 +1,12 @@
-name: DashboardORforPM
-title: DashboardORforPM
+name: dashboard
+title: dashboard
 username: alanrvazquez
 account: alanrvazquez
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
-appId: 13522824
-bundleId: 10973742
-url: https://alanrvazquez.shinyapps.io/DashboardORforPM/
+appId: 15611849
+bundleId: 10973692
+url: https://alanrvazquez.shinyapps.io/dashboard/
 version: 1
 quarto_version: 1.7.32
 quarto_engines: knitr
