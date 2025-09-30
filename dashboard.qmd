@@ -31,8 +31,7 @@ my.data.large = read_csv("results/large_problems.csv")
 
 my.data = bind_rows(my.data.small, my.data.medium, my.data.large)
 my.data = my.data %>% 
-  mutate(p = p -1) %>%  # Remove intercept.
-  filter(Algorithm != "RAND")
+  mutate(p = p -1)  # Remove intercept.
 
 summary_results = my.data %>% 
   group_by(Algorithm, n, p) %>% 
@@ -119,17 +118,19 @@ datasetTable = reactive({
 
 # Introduction
 
-This dashboard provides the results from the numerical experiments in Section 6 of Vazquez and Wong (2024). The numerical experiments have  problems with 20 to 150 subjects and two to 24 quantitative or categorical covariates. All sets of problems involve a model with the intercept and the linear terms of the covariates, as well as the interactions of the treatment effect with these terms.  
+This dashboard provides the results from the numerical experiments in Sections 6.1 of Vazquez and Wong (2025). The numerical experiments have problems with 20 to 150 subjects and two to 29 quantitative or two-level categorical covariates. All sets of problems involve a model with the intercept and the linear terms of the covariates, as well as the interactions of the treatment effect with these terms.  
 
 For each problem, there are five $n \times p$ covariate matrices $\mathbf{H}$ of the subjects in the trial. They are the input of the algorithms to construct two-arm clinical trials. The algorithms and their labels are:
 
-- EXACT: Exact algorithm of Zhang et al. (2021).
-- LB\_APPROX: Approximate algorithm of Zhang et al. (2021).
-- MB\_SDP: Mixed binary semidefinite programming algorithm of Li et al. (2023).
-- IP: Integer programming algorithm of Vazquez and Wong (2024).
-- CE: Coordinate-exchange algorithm of Vazquez and Wong (2024).
+- EXACT: Cutting-plane-based algorithm of Zhang et al. (2021) with an imbalance degree $e=6$.
+- LB\_APPROX: Integer-programming-based algorithm of Zhang et al. (2021) with an imbalance degree  $e=6$.
+- MB\_SDP: semidefinite-programming-based algorithm of Li et al. (2023).
+- IP: Integer-programming-based algorithm of Vazquez and Wong (2025) with $e=6$.
+- CE: Coordinate-exchange algorithm of Vazquez and Wong (2025).
 
-We evaluate the clinical trials constructed by the algorithms in terms of the average subject's covariate (SC) variance and the maximum SC variance calculated over the entire covariate space $\mathcal{Z}$ (Zhang et al., 2021). We also evaluate the algorithms in terms of the maximum and average approximated SC variance.
+We evaluate the clinical trials constructed by the algorithms in terms of the average subject's covariate (SC) variance and the maximum SC variance calculated over the entire covariate space $\mathcal{Z}$ (Zhang et al., 2021). We also evaluate the algorithms in terms of the maximum and average approximated SC variance. 
+
+For more details on the computational setup of the experiments, please see Section 6 of Vazquez and Wong (2025).
 
 ## References
 
@@ -137,7 +138,7 @@ We evaluate the clinical trials constructed by the algorithms in terms of the av
 
 Li, Y., Zhang, Q., Khademi, A., and Yang, B. (2023). Optimal design of controlled experiments for personalized decision making in the presence of observational covariates. *The New England Journal of Statistics in Data Science*, 1:386-393.
 
-Vazquez, A. R. and Wong, W.-K. (2024). Integer Programming and Heuristic Algorithms for Constructing Optimal Two-Arm Clinical Trials for Personalized Medicine. Submitted to *Journal of Computational and Graphical Statistics*.
+Vazquez, A. R. and Wong, W.-K. (2025). Integer Programming and Heuristic Algorithms for Constructing Optimal Two-Arm Clinical Trials for Personalized Medicine. Submitted to *Journal of Computational and Graphical Statistics*.
 
 Zhang, Q., Khademi, A., and Song, Y. (2021). Mini-max optimal design of two-armed trials with side information. *INFORMS Journal of Computing*, 34:165-182.
 
